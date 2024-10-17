@@ -1,0 +1,182 @@
+---
+
+- name: Instalar .NET Core 8 y configurar la aplicación de viñedos
+  hosts: localhost
+  become: yes
+  tasks:
+    # (Tus tareas de instalación previas permanecen igual)
+    # ...
+
+    # Crear directorio para la aplicación (si no existe)
+    - name: Crear directorio para la aplicación
+      file:
+        path: /home/ubuntu/vineyard_app
+        state: directory
+
+    # Crear archivo vineyard_app.csproj (si no existe)
+    - name: Crear archivo del proyecto
+      copy:
+        dest: /home/ubuntu/vineyard_app/vineyard_app.csproj
+        content: |
+          <Project Sdk="Microsoft.NET.Sdk.Web">
+            <PropertyGroup>
+              <TargetFramework>net8.0</TargetFramework>
+            </PropertyGroup>
+          </Project>
+
+    # **Nuevas tareas para agregar los archivos de código**
+
+    # Crear archivo Vineyard.cs
+    - name: Crear archivo Vineyard.cs
+      copy:
+        dest: /home/ubuntu/vineyard_app/Vineyard.cs
+        content: |
+          public class Vineyard
+          {
+              public string Name { get; set; }
+              public string Location { get; set; }
+              public List<string> Grapes { get; set; }
+
+              public void PrintDetails()
+              {
+                  Console.WriteLine($"Vineyard: {Name}, Location: {Location}, Grapes: {string.Join(", ", Grapes)}");
+              }
+          }
+
+    # Crear archivo VineyardFactory.cs
+    - name: Crear archivo VineyardFactory.cs
+      copy:
+        dest: /home/ubuntu/vineyard_app/VineyardFactory.cs
+        content: |
+          public static class VineyardFactory
+          {
+              public static Vineyard CreateVineyard(string name, string location, List<string> grapes)
+              {
+                  return new Vineyard
+                  {
+                      Name = name,
+                      Location = location,
+                      Grapes = grapes
+                  };
+              }
+          }
+
+    # Crear archivo VineyardManager.cs
+    - name: Crear archivo VineyardManager.cs
+      copy:
+        dest: /home/ubuntu/vineyard_app/VineyardManager.cs
+        content: |
+          using System;
+          using System.Collections.Generic;
+
+          public class VineyardManager
+          {
+              private static VineyardManager _instance;
+              private List<Vineyard> vineyards;
+
+              private VineyardManager()
+              {
+                  vineyards = new List<Vineyard>();
+              }
+
+              public static VineyardManager Instance
+              {
+                  get
+                  {
+                      if (_instance == null)
+                      {
+                          _instance = new VineyardManager();
+                      }
+                      return _instance;
+                  }
+              }
+
+              public void AddVineyard(string name, string location, List<string> grapes)
+              {
+                  var vineyard = VineyardFactory.CreateVineyard(name, location, grapes);
+                  vineyards.Add(vineyard);
+                  vineyard.PrintDetails();
+              }
+
+              public List<Vineyard> GetVineyards()
+              {
+                  return vineyards;
+              }
+          }
+
+    # Actualizar Program.cs con el nuevo código refactorizado
+    - name: Actualizar archivo de código fuente Program.cs
+      copy:
+        dest: /home/ubuntu/vineyard_app/Program.cs
+        content: |
+          using System;
+          using System.Collections.Generic;
+          using Microsoft.AspNetCore.Hosting;
+          using Microsoft.Extensions.Hosting;
+          using Microsoft.AspNetCore.Builder;
+          using Microsoft.Extensions.DependencyInjection;
+
+          namespace VineyardApp
+          {
+              public class Program
+              {
+                  public static void Main(string[] args)
+                  {
+                      // Agregar algunos viñedos al iniciar la aplicación
+                      var manager = VineyardManager.Instance;
+                      manager.AddVineyard("Viñedo La Esperanza", "Mendoza", new List<string> { "Malbec", "Cabernet Sauvignon" });
+                      manager.AddVineyard("Viñedo El Milagro", "Valle de Napa", new List<string> { "Chardonnay", "Pinot Noir" });
+
+                      CreateHostBuilder(args).Build().Run();
+                  }
+
+                  public static IHostBuilder CreateHostBuilder(string[] args) =>
+                      Host.CreateDefaultBuilder(args)
+                          .ConfigureWebHostDefaults(webBuilder =>
+                          {
+                              webBuilder.UseStartup<Startup>();
+                          });
+              }
+
+              public class Startup
+              {
+                  public void ConfigureServices(IServiceCollection services)
+                  {
+                      services.AddControllers();
+                  }
+
+                  public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+                  {
+                      if (env.IsDevelopment())
+                      {
+                          app.UseDeveloperExceptionPage();
+                      }
+                      else
+                      {
+                          app.UseExceptionHandler("/Home/Error");
+                          app.UseHsts();
+                      }
+                      app.UseHttpsRedirection();
+                      app.UseRouting();
+                      app.UseAuthorization();
+                      app.UseEndpoints(endpoints =>
+                      {
+                          endpoints.MapControllers();
+                      });
+                  }
+              }
+          }
+
+    # Construir la aplicación de viñedos
+    - name: Construir la aplicación de viñedos
+      command: dotnet build /home/ubuntu/vineyard_app/vineyard_app.csproj
+      args:
+        chdir: /home/ubuntu/vineyard_app
+
+    # Ejecutar la aplicación
+    - name: Ejecutar la aplicación
+      command: dotnet run --urls "http://0.0.0.0:5000"
+      args:
+        chdir: /home/ubuntu/vineyard_app
+      async: 10
+      poll: 0
