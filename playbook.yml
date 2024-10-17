@@ -1,20 +1,43 @@
 ---
-
 - name: Instalar .NET Core 8 y configurar la aplicación de viñedos
   hosts: 127.0.0.1
   connection: local
   become: yes
   tasks:
-    # (Tus tareas de instalación previas permanecen igual)
-    # ...
+    - name: Actualizar el sistema
+      apt:
+        update_cache: yes
+        upgrade: dist
 
-    # Crear directorio para la aplicación (si no existe)
+    - name: Instalar dependencias necesarias
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Descargar el paquete de repositorio de Microsoft para Ubuntu 24.04 LTS
+      command: wget https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -O /tmp/packages-microsoft-prod.deb
+
+    - name: Instalar el paquete de repositorio de Microsoft
+      command: dpkg -i /tmp/packages-microsoft-prod.deb
+
+    - name: Actualizar el caché de apt después de agregar el repositorio
+      apt:
+        update_cache: yes
+
+    - name: Instalar .NET SDK
+      apt:
+        name: dotnet-sdk-8.0
+        state: present
+
     - name: Crear directorio para la aplicación
       file:
         path: /home/ubuntu/vineyard_app
         state: directory
 
-    # Crear archivo vineyard_app.csproj (si no existe)
     - name: Crear archivo del proyecto
       copy:
         dest: /home/ubuntu/vineyard_app/vineyard_app.csproj
@@ -25,13 +48,14 @@
             </PropertyGroup>
           </Project>
 
-    # **Nuevas tareas para agregar los archivos de código**
-
-    # Crear archivo Vineyard.cs
+    # Crear archivo Vineyard.cs con las declaraciones 'using' necesarias
     - name: Crear archivo Vineyard.cs
       copy:
         dest: /home/ubuntu/vineyard_app/Vineyard.cs
         content: |
+          using System;
+          using System.Collections.Generic;
+
           public class Vineyard
           {
               public string Name { get; set; }
@@ -44,11 +68,13 @@
               }
           }
 
-    # Crear archivo VineyardFactory.cs
+    # Crear archivo VineyardFactory.cs con las declaraciones 'using' necesarias
     - name: Crear archivo VineyardFactory.cs
       copy:
         dest: /home/ubuntu/vineyard_app/VineyardFactory.cs
         content: |
+          using System.Collections.Generic;
+
           public static class VineyardFactory
           {
               public static Vineyard CreateVineyard(string name, string location, List<string> grapes)
@@ -62,7 +88,7 @@
               }
           }
 
-    # Crear archivo VineyardManager.cs
+    # Crear archivo VineyardManager.cs con las declaraciones 'using' necesarias
     - name: Crear archivo VineyardManager.cs
       copy:
         dest: /home/ubuntu/vineyard_app/VineyardManager.cs
@@ -105,7 +131,7 @@
               }
           }
 
-    # Actualizar Program.cs con el nuevo código refactorizado
+    # Actualizar Program.cs con el código refactorizado
     - name: Actualizar archivo de código fuente Program.cs
       copy:
         dest: /home/ubuntu/vineyard_app/Program.cs
